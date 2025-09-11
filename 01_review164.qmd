@@ -260,13 +260,13 @@ a) Describe the tibble `temp` created above.  What would be the dimensions?  Wha
 It would have 3 rows and 4 columns; each row represents an MD_group, aka whether or not there is a low, medium, or high number of residents per doctor. One of the columns (MD_group) represents the MD_group, n represents how many counties fall into that group, mean_perc_vac represents the mean percentage of residents completely vaccinated, and mean_white represents the mean percentage of white residents.
 
 b) What would happen if we replaced `new_perc_vac = ifelse(perc_complete_vac > 95, NA, perc_complete_vac)` with `new_perc_vac = ifelse(perc_complete_vac > 95, perc_complete_vac, NA)`?
-The dataset would only include counties with a vaccination rate above 95%
+The tibble would only include counties with a vaccination rate above 95% because any ones below 95% would become an NA and then later get removed in the means. 
 
 c) What would happen if we replaced `mean_white = mean(perc_white, na.rm = TRUE)` with `mean_white = mean(perc_white)`?
-It would possibly end up as NA if any of the counties do not have this data
+It would possibly end up as NA if any of the counties do not have this data, which is pretty likely since we made anything above 95% into an NA. 
 
 d) What would happen if we removed `group_by(MD_group)`?
-The summarize would summarize everything into a single line with 3 columsn for n, mean_perc_vac, and mean_white
+The summarize would summarize everything into a single line with 3 columns for n, mean_perc_vac, and mean_white
 
 9. Hypothetical R chunk #2:
 
