@@ -1,0 +1,179 @@
+---
+title: "Strings: Extra Practice (Part 3)"
+format: pdf
+editor_options: 
+  chunk_output_type: console
+---
+  
+You can download this .qmd file from [here](https://github.com/proback/264_fall_2025/blob/main/04_strings_part3.qmd).  Just hit the Download Raw File button.
+
+```{r}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(rvest)
+library(httr)
+```
+
+
+## On Your Own - Extra practice with strings and regular expressions
+
+1. Describe the equivalents of ?, +, * in {m,n} form.
+
+A ? means to repeat 0 or 1 times, so the equivalent would be {,1}, which means to repeat at most 1 time (and therefore also 0 times would work). A + means to repeat 1 or more times, so the equivalent would be {1,}. A * means to repeat 0 or more times, so the equivalent would be {0,}.  
+
+2. Describe, in words, what the expression "(.)(.)\\2\\1" will match, and provide a word or expression as an example.  
+
+This expression will detect any two characters that then are immediately followed by the same two characters in reverse order, in an abba pattern like "bottom". 
+
+3. Produce an R string which the regular expression represented by "\\..\\..\\.." matches.  In other words, find a string `y` below that produces a TRUE in `str_detect`.
+
+```{r}
+test_string <- c("H.E.L.L.O. W.O.R.L.D")
+str_detect(test_string, "\\..\\..\\..")
+```
+
+
+4. Solve with `str_subset()`, using the words from `stringr::words`:
+
+- Find all words that start or end with x.
+```{r}
+str_subset(words, "^x|x$")
+```
+(there are no words that start with x). 
+
+- Find all words that start with a vowel and end with a consonant.
+```{r}
+str_subset(words, "^[aeiou].*[^aeiou]$")
+```
+
+- Find all words that start and end with the same letter
+```{r}
+str_subset(words, "^(.).*\\1$")
+```
+
+
+5. What words in `stringr::words` have the highest number of vowels? What words have the highest proportion of vowels? (Hint: what is the denominator?)  Figure this out using the tidyverse and piping, starting with `as_tibble(words) |>`.
+```{r}
+as_tibble(words) |>
+  mutate(num_vowels = str_count(value, "[aeiou]")) |>
+  arrange(desc(num_vowels))
+
+as_tibble(words) |>
+  mutate(num_vowels = str_count(value, "[aeiou]"),
+         prop_vowels = num_vowels/str_length(value)) |>
+  arrange(desc(prop_vowels))
+```
+
+The words with the most values in words have 5 values; these words are as follows: appropriate, associate, available, colleague, encourage, experience, individual, and television. The word with the highest proportion of values is "a", which has a proportion of 1. The next two words have a proportion of 0.75, those words being "area" and "idea". 
+
+6. From the Harvard sentences data, use `str_extract` to produce a tibble with 3 columns:  the sentence, the first word in the sentence, and the first word ending in "ed" (NA if there isn't one).
+```{r}
+as_tibble(sentences) |>
+  mutate(first_word = str_extract(value, "\\b[^ ]+\\b"),
+         first_ed = str_extract(value, "\\b[^ ]+ed\\b"))
+```
+
+
+7. Find and output all contractions (words with apostrophes) in the Harvard sentences, assuming no sentence has multiple contractions.
+```{r}
+str_extract(sentences, "\\b[^ ]+\\'[^ ]\\b") # will output lots of NA's, can also do:
+
+as_tibble(sentences) |>
+  mutate(contractions = str_extract(value, "\\b[^ ]+\\'[^ ]\\b")) |>
+  select(contractions) |>
+  filter(!is.na(contractions)) #tibble, no NAs
+```
+
+
+8. *Carefully* explain what the code below does, both line by line and in general terms.
+
+```{r}
+temp <- str_replace_all(words, "^([A-Za-z])(.*)([a-z])$", "\\3\\2\\1")
+as_tibble(words) |>
+  semi_join(as_tibble(temp)) |>
+  print(n = Inf)
+```
+
+The first line creates a temporary tibble called temp that switches the first and last letter of every word (so "woman" becomes "nomaw", for example). The second line turns the list of normal words into a tibble, then the third line takes the two tables and returns only the values from the original words table that are also found in the temporary table with the letters switched, and the last line prints out all the results. Overall, this code produces a tibble of words from the words data that are still a word if you switch the first and last letters, whether this is because those are the same letter (like in "dad"), because the switch makes a new word (like how "deal" becomes "lead"), or because the word only has one letter (as in "a"). 
+
+## Coco and Rotten Tomatoes
+
+We will check out the Rotten Tomatoes page for the 2017 movie Coco, scrape information from that page (we'll get into web scraping in a few weeks!), clean it up into a usable format, and answer some questions using strings and regular expressions.
+
+```{r}
+
+# used to work
+# coco <- read_html("https://www.rottentomatoes.com/m/coco_2017")
+
+# robotstxt::paths_allowed("https://www.rottentomatoes.com/m/coco_2017")
+
+library(polite)
+coco <- "https://www.rottentomatoes.com/m/coco_2017" |>
+  bow() |> 
+  scrape()
+
+top_reviews <- 
+  "https://www.rottentomatoes.com/m/coco_2017/reviews?type=top_critics" |> 
+  bow() |> 
+  scrape()
+top_reviews <- html_nodes(top_reviews, ".review-text")
+top_reviews <- html_text(top_reviews)
+
+user_reviews <- 
+  "https://www.rottentomatoes.com/m/coco_2017/reviews?type=user" |> 
+  bow() |> 
+  scrape()
+user_reviews <- html_nodes(user_reviews, ".js-review-text")
+user_reviews <- html_text(user_reviews)
+```
+
+
+9. `top_reviews` is a character vector containing the 20 most recent critic reviews (along with some other junk) for Coco, while `user_reviews` is a character vector with the 10 most recent user reviews.
+
+a) Explain how the code below helps clean up both `user_reviews` and `top_reviews` before we start using them.
+
+```{r}
+#| eval: false
+
+user_reviews <- str_trim(user_reviews)
+top_reviews <- str_trim(top_reviews)
+```
+
+This code will get rid of excessive whitespace (tabs and such) at the start and end of a string. Before running this code, there is a large blank space at the start of each review, which this code gets rid of. 
+
+b) Print out the critic reviews where the reviewer mentions "emotion" or "cry".  Think about various forms ("cried", "emotional", etc.)  You may want to turn reviews to all lower case before searching for matches.
+
+```{r}
+as_tibble(top_reviews) |>
+  mutate(lower = str_to_lower(value),
+         emo_cry = str_detect(lower, "emotion|cry|cried")) |>
+  filter(emo_cry) |>
+  select(value)
+```
+
+
+c) In critic reviews, replace all instances where "Pixar" is used with its full name: "Pixar Animation Studios".
+
+```{r}
+str_replace(top_reviews, "Pixar", "Pixar Animation Studios")
+```
+
+
+d) Find out how many times each user uses "I" in their review.  Remember that it could be used as upper or lower case, at the beginning, middle, or end of a sentence, etc. 
+
+```{r}
+as_tibble(user_reviews) |>
+  mutate(i_count = str_count(value, "[iI]"))
+```
+
+
+e) Do critics or users have more complex reviews, as measured by average number of commas used?  Be sure your code weeds out commas used in numbers, such as "12,345".
+
+```{r}
+mean(str_count(user_reviews, ", "))
+mean(str_count(top_reviews, ", "))
+```
+
+The average number of commas in a user review is 1.45, while the average number in a critic review is 1.35. Thus, user reviews are slightly more complex on average. 

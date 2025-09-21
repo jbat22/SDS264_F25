@@ -1,15 +1,9 @@
 ---
-title: 'Review of Data Science 1'
-format:
-  html: default
+title: 'Homework 1'
+format: pdf
 editor_options: 
   chunk_output_type: console
 ---
-test edit
-
-You can download this .qmd file from [here](https://github.com/proback/264_fall_2025/blob/main/01_review164.qmd).  Just hit the Download Raw File button.
-
-
 ### Determinants of COVID vaccination rates
 
 ```{r}
@@ -72,7 +66,8 @@ a) A scatterplot with points and smoothers colored by state.  Make sure the lege
 vaccine_data |>
   filter(state %in% c("Minnesota", "Iowa", "Wisconsin",
                       "North Dakota", "South Dakota")) |>
-  ggplot(aes(x = perc_Biden, y = perc_complete_vac, color = fct_reorder2(state, perc_Biden, perc_complete_vac))) +
+  ggplot(aes(x = perc_Biden, y = perc_complete_vac, 
+             color = fct_reorder2(state, perc_Biden, perc_complete_vac))) +
   geom_point() +
   geom_smooth(se = FALSE) + 
   labs( x = "Percent voted for Biden",
@@ -100,56 +95,6 @@ vaccine_data |>
 ```
 
 I prefer the first plot because it is easier to compare between states when on the same plot since they are fairly similar, but the second is nice if you are trying to just see what the trend is in every state and are doing less strict comparing. 
-
-2. We wish to compare the proportions of counties in each region with median household income above the national median ($69,560).
-
-a) Fill in the blanks below to produce a segmented bar plot with regions ordered from highest proportion above the median to lowest.
-
-b) Create a table of proportions by region to illustrate that your bar plot in (a) is in the correct order (you should find two regions that are *really* close when you just try to eyeball differences).
-
-c) Explain why we can replace `fct_relevel(region, FILL IN CODE)` with
-
-`mutate(region_sort = fct_reorder(region, median_HHincome_2019 < 69560, .fun = mean))` 
-
-but not
-
-`mutate(region_sort = fct_reorder(region, median_HHincome_2019 < 69560))`
-
-```{r}
-#| eval: false
-
-vaccine_data |>
-  mutate(HHincome_vs_national = ifelse(median_HHincome_2019 < 69560, FILL IN CODE)) |>
-  mutate(region_sort = fct_relevel(region, FILL IN CODE)) |>
-  ggplot(mapping = aes(x = region_sort, fill = HHincome_vs_national)) +
-    geom_bar(position = "fill")
-```
-
-
-3. We want to examine the distribution of total county populations and then see how it's related to vaccination rates.
-
-a) *Carefully and thoroughly* explain why the two histograms below provide different plots.
-
-```{r}
-vaccine_data |>
-  mutate(tot_pop_millions = tot_pop / 1000000) |>
-  ggplot(mapping = aes(x = tot_pop_millions)) +
-    geom_histogram(bins = 40) +
-    labs(x = "Total population in millions")
-
-vaccine_data |>
-  mutate(tot_pop_millions = tot_pop %/% 1000000) |>
-  ggplot(mapping = aes(x = tot_pop_millions)) +
-    geom_histogram(bins = 40) +
-    labs(x = "Total population in millions")
-```
-
-b) Find the top 5 counties in terms of total population.
-
-c) Plot a histogram of logged population and describe this distribution.
-
-d) Plot the relationship between log population and percent vaccinated using separate colors for Metro and Non-metro counties (be sure there's no 3rd color used for NAs).  Reduce the size and transparency of each point to make the plot more readable.  Describe what you can learn from this plot.
-
 
 4. Produce 3 different plots for illustrating the relationship between the rural_urban_code and percent vaccinated.  Hint: you can sometimes turn numeric variables into categorical variables for plotting purposes (e.g. `as.factor()`, `ifelse()`).
 
@@ -215,6 +160,7 @@ state_stuff <- vaccine_data |>
    prop_metro = mean(metro_status == "Metro"),
     med_unemp = median(unemployment_rate_2020)) |>
   arrange(tot_state_pop)
+state_stuff
 ```
 
 
@@ -229,21 +175,6 @@ state_stuff |>
        x = "Proportion of metro counties",
        y = "Median unemployment rate")
 ```
-
-
-
-7. Generate an appropriate plot to compare vaccination rates between two subregions of the US: New England (which contains the states Maine, Vermont, New Hampshire, Massachusetts, Connecticut, Rhode Island) and the Upper Midwest (which, according to the USGS, contains the states Minnesota, Wisconsin, Michigan, Illinois, Indiana, and Iowa).  What can you conclude from your plot?
-
-
-In this next section, we consider a few variables that could have been included in our data set, but were NOT.  Thus, you won't be able to write and test code, but you nevertheless should be able to use your knowledge of the tidyverse to answer these questions.
-
-Here are the hypothetical variables:
-
-- HR_party = party of that county's US Representative (Republican, Democrat, Independent, Green, or Libertarian)
-- people_per_MD = number of residents per doctor (higher values = fewer doctors)
-- perc_over_65 = percent of residents over 65 years old
-- perc_white = percent of residents who identify as white
-
 
 8. Hypothetical R chunk #1:
 

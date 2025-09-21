@@ -1,7 +1,6 @@
 ---
 title: "Strings: In-class Exercises (Part 2)"
-format:
-  html: default
+format: pdf
 editor_options: 
   chunk_output_type: console
 ---
@@ -82,18 +81,20 @@ typeof(str_view(spot_smaller$subgenre, "pop"))
 class(str_view(spot_smaller$subgenre, "pop"))
 
 str_view(spot_smaller$subgenre, "pop", match = NA)
-str_view(spot_smaller$subgenre, "pop", html = TRUE)
+#str_view(spot_smaller$subgenre, "pop", html = TRUE)
 
 str_subset(spot_smaller$subgenre, "pop")
 
 str_detect(spot_smaller$subgenre, "pop")
 ```
 
+The input for str_view is a character vector and a regular expression, and the output is another character vector. When match = NA is used, this is still the case. However, when html = TRUE is used, the output is now an html list. str_subset will also take a character vector and regular expression and output a character vector, while str_detect will output a logical vector of TRUE/FALSEs. 
 
 2. Use str_detect to print the rows of the spot_smaller tibble containing songs that have "pop" in the subgenre. (i.e. make a new tibble with fewer rows)
 ```{r}
 spot_pop <- spot_smaller |>
   filter(str_detect(subgenre, "pop"))
+spot_pop
 ```
 
 
@@ -122,7 +123,7 @@ spot_mean_length <- spot_smaller |>
   group_by(sub_pop) |>
   summarise(mean_title_length = mean(title_length)) |>
   arrange(mean_title_length)
-  
+spot_mean_length
 ```
 
 
@@ -133,6 +134,7 @@ bigspotify <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience
 
 bigspotify
 ```
+
 ```{r}
 bigspotify |>
   filter(!is.na(track_name)) |>
@@ -182,6 +184,21 @@ str_view(spot_smaller$artist, "[^A-Za-z ]") #artists that dont end with letters 
 # For example, to find words with "tion" at any point, I could use:
 str_view(words, "tion")
 str_subset(words, "tion")
+
+#start with y
+str_subset(words, "^y")
+#end with x
+str_subset(words, "x$")
+#three letters long
+str_subset(words, "^...$")
+#seven letters or more
+str_subset(words, ".......")
+#start with a vowel
+str_subset(words, "^[aeiou]")
+#end with ed, not eed
+str_subset(words, "[^e]ed$")
+#q not followed by u
+str_subset(words, "q[^u]")
 ```
 
 
@@ -209,10 +226,21 @@ str_view(spot_smaller$title, "\\$")
 
 
 6. In bigspotify, how many track_names include a $?  Be sure you print the track_names you find and make sure the dollar sign is not just in a featured artist!
+```{r}
+bigspotify |>
+  filter(str_detect(track_name, "\\$") & !str_detect(track_name, "[^\\$].*(with|feat).*\\$")) |>
+  select(track_name) |>
+  print(n = 60)
+```
 
+There are 25 track_names that include a $ not from the featured artist. 
 
 7. In bigspotify, how many track_names include a dollar amount (a $ followed by a number).
+```{r}
+str_view(bigspotify$track_name, "\\$\\d")
+```
 
+There are 2 track_names that include a dollar amount. 
 
 ## Repetition
 
@@ -234,12 +262,16 @@ str_view(spot_smaller$album_release_date, "\\d{4}-\\d{2}")
 **Use at least 1 repetition symbol when solving 8-10 below**
 
 8. Modify the first regular expression above to also pick up "A.A" (in addition to "BEYONC" and "II").  That is, pick up strings where there might be a period between capital letters.
+```{r}
+str_view(spot_smaller$album_name, "[A-Z.]{2,}")
+```
 
 
 9. Create some strings that satisfy these regular expressions and explain.
 
-- "^.*$"
-- "\\{.+\\}"
+- "^.*$"  --> starts and ends with anything repeated 0 or more times; ex: "Hello"
+- "\\{.+\\}" --> has {} with anything of length one or more inside them; ex "Test {test}"
+ 
 
 
 10. Create regular expressions to find all `stringr::words` that:
@@ -247,10 +279,17 @@ str_view(spot_smaller$album_release_date, "\\d{4}-\\d{2}")
 - Start with three consonants.
 - Have two or more vowel-consonant pairs in a row.
 
+```{r}
+#start with three consonants
+str_view(words, "^[^aeiouy]{3,}")
+#two or more vowel-consonant pairs in a row
+str_view(words, "([aeiouy][^aeiouy]){2,}")
+```
+
 
 ## Useful functions for handling patterns
 
-str_extract() : extract a string that matches a pattern
+str_extract() : extract a string that matches a pattern (just that piece)
 str_count() : count how many times a pattern occurs within a string
 
 
@@ -268,13 +307,19 @@ spot_smaller |>
 
 
 11. In the spot_smaller dataset, how many words are in each title? (hint \\b)
+```{r}
+spot_smaller |>
+  mutate(num_words = str_count(title, "\\b[^ ]+\\b")) |>
+  select(title, num_words)
+```
 
 
 12. In the spot_smaller dataset, extract the first word from every title. Show how you would print out these words as a vector and how you would create a new column on the spot_smaller tibble.  That is, produce this:
 
 ```{r}
 # [1] "Hear"      "Run"       "Formation" "7/11"      "My"        "It's"     
-# [7] "Poetic"    "A.D.H.D"   "Ya"        "Runnin"   
+# [7] "Poetic"    "A.D.H.D"   "Ya"        "Runnin"
+str_extract(spot_smaller$title, "\\b[^ ]+\\b")
 ```
 Then this:
 ```{r}
@@ -291,6 +336,10 @@ Then this:
 # 8 A.D.H.D                                           A.D.H.D   
 # 9 Ya Estuvo                                         Ya        
 #10 Runnin (with A$AP Rocky, A$AP Ferg & Nicki Minaj) Runnin    
+
+spot_smaller |>
+  mutate(first_word = str_extract(title, "\\b[^ ]+\\b")) |>
+  select(title, first_word)
 ```
 
 
@@ -301,6 +350,16 @@ Then this:
  - use count to find how many playlists include each decade
  - what if you include both "80's" and "80s"? 
  - how can you count "80's" and "80s" together in your final tibble?
+
+```{r}
+bigspotify |>
+  filter(str_detect(playlist_name, "\\d0'?s")) |>
+  mutate(decade = str_extract(playlist_name, "\\d0'?s"),
+         decade = str_replace(decade, "'", "")
+         #decade = str_extract(decade, "\\d0")
+         ) |>
+  count(decade)
+```
 
 
 ## Grouping and backreferences
@@ -330,16 +389,28 @@ str_view(x1, "(.)(.)(.)\\1\\2\\3")
 
 14. Describe to your groupmates what these expressions will match, and provide a word or expression as an example:
 
-- (.)\1\1
-- "(.)(.)(.).*\\3\\2\\1"
+- (.)\\1\\1 --> this will match anything with the same 3 letters in a row (ex: goddessship)
+- "(.)(.)(.).*\\3\\2\\1" --> this will match anything that has the pattern xxabcxxxcbaxx (where there are three later characters that are the same as some previous three but in reverse order)
 
 Which words in `stringr::words` match each expression?
-
+No words will match the first expression, but the word "paragraph" matches the second. 
 
 15. Construct a regular expression to match words in `stringr::words` that contain a repeated pair of letters (e.g. “church” contains “ch” repeated twice) but *not* match repeated pairs of numbers (e.g. 507-786-3861).
 
+```{r}
+#two ways!
+str_view(words, "([a-z])([a-z]).*\\1\\2")
+str_view(words, "([^\\d][^\\d]).*\\1")
+```
+
 
 16. Reformat the album_release_date variable in spot_smaller so that it is MM-DD-YYYY instead of YYYY-MM-DD.  (Hint: str_replace().)
+
+```{r}
+spot_smaller |>
+  mutate(album_release_date = str_replace(album_release_date, "(\\d{4})-(\\d{2})-(\\d{2})", "\\2-\\3-\\1")) |>
+  select(album_release_date)
+```
 
 
 17. BEFORE RUNNING IT, explain to your partner(s) what the following R chunk will do:
@@ -349,3 +420,5 @@ sentences |>
   str_replace("([^ ]+) ([^ ]+) ([^ ]+)", "\\1 \\3 \\2") |> 
   head(5)
 ```
+It switches the order of the second and third words (and then extracts just the first five sentences for viewing)
+Matching the pattern of one or more non-spaces followed by a space to get the words.
