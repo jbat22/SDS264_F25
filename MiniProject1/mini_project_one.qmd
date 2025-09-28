@@ -1,0 +1,10 @@
+---
+title: "Mini Project 1"
+format: html
+---
+
+```{r}
+#read in data
+
+```
+
