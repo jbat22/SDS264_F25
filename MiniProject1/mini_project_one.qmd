@@ -1,10 +1,92 @@
 ---
 title: "Mini Project 1"
 format: html
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r}
+library(tidyverse)
+library(tidytext)
+library(textdata)
+library(wordcloud)
+library(wordcloud2)
+library(viridis)
+library(ggthemes)
 #read in data
+pjo_one <- read_csv("https://raw.githubusercontent.com/jbat22/SDS264_F25/8e3cf3f7b9a76ec89e7fdd98a047a65aa5a9a4e1/MiniProject1/pjo_book_one.csv?token=GHSAT0AAAAAADMCS6NIJIOLRDX5KHMRYYI22GZNGVQ")
+pjo_two <- read_csv("https://raw.githubusercontent.com/jbat22/SDS264_F25/8e3cf3f7b9a76ec89e7fdd98a047a65aa5a9a4e1/MiniProject1/pjo_book_two.csv?token=GHSAT0AAAAAADMCS6NIKCCXQ3RGGUZQN3L42GZNIZA")
+pjo_three <- read_csv("https://raw.githubusercontent.com/jbat22/SDS264_F25/8e3cf3f7b9a76ec89e7fdd98a047a65aa5a9a4e1/MiniProject1/pjo_book_three.csv?token=GHSAT0AAAAAADMCS6NIH2QTBSMSK7OGLOGK2GZNJ3A")
+pjo_four <- read_csv("https://raw.githubusercontent.com/jbat22/SDS264_F25/8e3cf3f7b9a76ec89e7fdd98a047a65aa5a9a4e1/MiniProject1/pjo_book_four.csv?token=GHSAT0AAAAAADMCS6NIKBJNQNWMRVVT3RVS2GZNKNA")
+pjo_five <- read_csv("https://raw.githubusercontent.com/jbat22/SDS264_F25/8e3cf3f7b9a76ec89e7fdd98a047a65aa5a9a4e1/MiniProject1/pjo_book_five.csv?token=GHSAT0AAAAAADMCS6NJDM5ZB42SFNT3DYS22GZNLEA")
+```
 
+```{r}
+int_one <- pjo_one |>
+  mutate(line = row_number(),
+         book = 1) |>
+  unnest_tokens(word, `Percy Jackson 1 - The Lightning Thief`, token = "words")
+int_two <- pjo_two |>
+  mutate(line = row_number(),
+         book = 2) |>
+  unnest_tokens(word, Contents, token = "words")
+int_three <- pjo_three |>
+  mutate(line = row_number(),
+         book = 3) |>
+  unnest_tokens(word,`THE TITAN'S CURSE`, token = "words")
+int_four <- pjo_four |>
+  mutate(line = row_number(),
+         book = 4) |>
+  unnest_tokens(word, CONTENTS, token = "words")
+int_five <- pjo_five |>
+  mutate(line = row_number(),
+         book = 5) |>
+  unnest_tokens(word, `Table of Contents`, token = "words")
+
+tidy_pjo <- rbind(int_one, int_two, int_three, int_four, int_five)
+```
+
+
+```{r}
+smart_stopwords <- get_stopwords(source = "smart")
+
+tidy_pjo |>
+  anti_join(smart_stopwords) |>
+  count(word, sort = TRUE) |>
+  filter(word != "NA") |>
+  slice_max(n, n = 20) |>
+  ggplot(aes(fct_reorder(word, n), n)) +
+  geom_col() +
+  coord_flip()
+```
+
+
+```{r}
+bing_sentiments <- get_sentiments(lexicon = "bing")
+
+tidy_pjo |>   
+  inner_join(bing_sentiments) |>
+  count(sentiment)
+
+tidy_pjo |>
+  inner_join(bing_sentiments) |>
+  count(sentiment, word, sort = TRUE) |>
+  group_by(sentiment) |>
+  slice_max(n, n = 10) |>
+  ungroup() |>
+  ggplot(aes(x = fct_reorder(word, n), y = n, fill = sentiment)) +
+    geom_col() +  
+    coord_flip() +
+    facet_wrap(~ sentiment, scales = "free")
+```
+
+
+```{r}
+potter_untidy <- read_csv(
+  file = getURL("https://raw.githubusercontent.com/proback/264_fall_2025/refs/heads/main/Data/potter_untidy.csv", .encoding = "UTF-8")) |>
+  mutate(title = fct_reorder(title, book_num))
+
+potter_tidy <- potter_untidy |>
+  unnest_tokens(output = word, input = text)
 ```
 
