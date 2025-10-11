@@ -1,0 +1,443 @@
+---
+title: 'Homework 2'
+format: pdf
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| message: false
+#| warning: false
+
+# Initial packages required (we'll be adding more)
+library(tidyverse)
+library(nycflights13)
+```
+
+
+#### Filter/remove the NA values before rescaling
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+df$a[5] = NA
+df
+
+rescale_basic <- function(x) {
+  (x - min(x)) / (max(x) - min(x))
+}
+
+df |>
+  filter(!is.na(a)) |>
+  mutate(new_a = rescale_basic(a))
+```
+
+**[Pause to Ponder 1:]** Do you notice anything in the output above that gives you pause?  
+
+We've deleted an entire row whose other data we may still want to use. 
+
+#### Create an if statement to check if there are NAs; return an error if NAs exist
+
+First, here's an example involving weighted means:
+
+```{r}
+# Create function to calculate weighted mean
+wt_mean <- function(x, w) {
+  sum(x * w) / sum(w)
+}
+wt_mean(c(1, 10), c(1/3, 2/3))
+wt_mean(1:6, 1:3)
+```
+
+**[Pause to Ponder 2:]** Why is the answer to the last call above 7.67?  Aren't we taking a weighted mean of 1-6, all of which are below 7?
+
+This is happening because we gave it a vector of weights that doesn't match the length of the vector of numbers to take the mean for, so R is recycling the vector of weights to multiply the first vector by, but it is not recycling when calculating the sum to divide by. Thus, we aren't really calculating weights properly, and instead making all the values in our data larger.  
+
+```{r}
+#| error: TRUE
+
+# update function to handle cases where data and weights of unequal length
+wt_mean <- function(x, w) {
+  if (length(x) != length(w)) {
+    stop("`x` and `w` must be the same length", call. = FALSE)
+  } else {
+  sum(w * x) / sum(w)
+  }  
+}
+wt_mean(1:6, 1:3) 
+# should produce an error now if weights and data different lengths
+#  - nice example of if and else
+```
+
+**[Pause to Ponder 3:]** What does the `call.` option do?
+If call. = TRUE, it will tell you what line/function the error is occuring in; if false, it just gives the error message.
+
+Now let's apply this to our rescaling function
+
+```{r}
+#| error: TRUE
+
+rescale_w_error <- function(x) {
+  if (is.na(sum(x))) {
+    stop("`x` cannot have NAs", call. = FALSE)
+  } else {
+    (x - min(x)) / (max(x) - min(x))
+  }  
+}
+
+temp <- c(4, 6, 8, 9)
+rescale_w_error(temp)
+
+temp <- c(4, 6, 8, 9, NA)
+rescale_w_error(temp)
+```
+
+**[Pause to Ponder 4:]** Why can't we just use `if (is.na(x))` instead of `is.na(sum(x))`?
+x is going to be an entire vector, so is.na(x) would return a logical vector of TRUEs and FALSEs, which would not work properly with the if function, which is checking for a single TRUE/FALSE. If we do is.na(sum(x)), then sum(x) will become NA if x has any NAs, so is.na will essentially return TRUE for any NAs in x, which is what we want. 
+
+**[Pause to Ponder 5:]** Predict what the code below will do, and (only) then run it to check.  Think about: why do we have `sort = sort`?  why not embrace `df`? why didn't we need `n` in the arguments?
+
+This code is going to create a function that takes an input of a dataset, variable in that dataset, and set of conditions. It will filter for only rows in the dataset that match that condition, then count all the different factors of the variable and calculate the proportions. With mpg, we will get a table of the counts and proportions of cars from each of the seven manufacturers. sort = sort is because the function can optionally take an input for sort as either TRUE or FALSE, so the user can control it if desired. We don't need to embrace df because it is an environment variable that lives in the environment, so it does not need to be embraced like data-variables inside a data frame need to be. The n column is automatically created by the count function, so we didn't need to manually put it anywhere. 
+
+```{r}
+#| eval: FALSE
+
+new_function <- function(df, var, condition, sort = TRUE) {
+  df |>
+    filter({{ condition }}) |>
+    count({{ var }}, sort = sort) |>
+    mutate(prop = n / sum(n))
+}
+
+mpg |> new_function(var = manufacturer, 
+                    condition = manufacturer %in% c("audi", 
+                                                    "honda", 
+                                                    "hyundai", 
+                                                    "nissan", 
+                                                    "subaru", 
+                                                    "toyota", 
+                                                    "volkswagen")
+                    )
+```
+
+
+**[Pause to Ponder 6:]** Here's another nice use of `pick()`.  Predict what the function will do, then run the code to see if you are correct.
+
+The function will take a dataframe, variables for the rows, and variables for the columns. It will make an n column for counts of the values in the rows and columns, then pivot wider the table to essentially show for each combination of the row variables what the counts are for each option from the cols variable. 
+
+```{r}
+#| eval: FALSE
+
+# Source: https://twitter.com/pollicipes/status/1571606508944719876
+new_function <- function(data, rows, cols) {
+  data |> 
+    count(pick(c({{ rows }}, {{ cols }}))) |> 
+    pivot_wider(
+      names_from = {{ cols }}, 
+      values_from = n,
+      names_sort = TRUE,
+      values_fill = 0
+    )
+}
+
+mpg |> new_function(c(manufacturer, model), cyl)
+```
+
+### On Your Own
+
+1. Rewrite this code snippet as a function: `x / sum(x, na.rm = TRUE)`.  This code creates weights which sum to 1, where NA values are ignored. Test it for at least two different vectors. (Make sure at least one has NAs!)
+```{r}
+weights_one <- function(x) {
+  x / sum(x, na.rm = TRUE)
+}
+
+test1 <- c(NA, 1, 2, 3, 4)
+weights_one(test1)
+test2 <- c(5, 8, 20, 3, 72)
+weights_one(test2)
+sum(weights_one(test2))
+```
+
+
+2. Create a function to calculate the standard error of a variable, where SE = square root of the variance divided by the sample size.  Hint: start with a vector like `x <- 0:5` or `x <- gss_cat$age` and write code to find the SE of x, then turn it into a function to handle any vector `x`. Note: `var` is the function to find variance in R and `sqrt` does square root. `length` may also be handy. Test your function on two vectors that do not include NAs  (i.e. do **not** worry about removing NAs at this point).
+
+```{r}
+se <- function(x) {
+  sqrt(var(x) / length(x))
+}
+
+test1 <- c(0,1,2,3,4,5)
+se(test1)
+test2 <- c(7,7,7)
+se(test2)
+```
+
+
+3. Use your `se` function within summarize to get a table of the mean and s.e. of `hwy` and `cty` by `class` in the `mpg` dataset.
+```{r}
+mpg |>
+  group_by(class) |>
+  summarize(
+    mean_hwy = mean(hwy),
+    se_hwy = se(hwy),
+    mean_cty = mean(cty),
+    se_cty = se(cty)
+  )
+```
+
+
+4. Use your `se` function within summarize to get a table of the mean and s.e. of `arr_delay` and `dep_delay` by carrier in the `flights` dataset. Why does the output look like this?
+```{r}
+flights |>
+  group_by(carrier) |>
+  summarize(
+    mean_arr_delay = mean(arr_delay),
+    se_arr_delay = se(arr_delay),
+    mean_dep_delay = mean(dep_delay),
+    se_dep_delay = se(dep_delay)
+  )
+```
+
+There is at least one NA for almost every carrier in the arr_delay and dep_delay columns, which spreads into the mean and se calculations and makes them NAs, too. 
+
+5. Make your `se` function handle NAs with an na.rm option. Test your new function (you can call it `se` again) on a vector that doesn't include NA and on the same vector with an added NA. **Be sure to check that it gives the expected output with na.rm = TRUE and na.rm = FALSE.** Make na.rm = FALSE the default value. Repeat #4.  (Hint: be sure when you divide by sample size you don't count any NAs)
+```{r}
+se <- function(x, na.rm = FALSE) {
+  sqrt(var(x, na.rm = na.rm) / (length(x) - sum(is.na(x))))
+}
+
+se(0:5)
+se(0:5, na.rm = TRUE)
+test <- c(0,1,2,3,4,5,NA)
+se(test)
+se(test, na.rm = TRUE)
+
+flights |>
+  group_by(carrier) |>
+  summarize(
+    mean_arr_delay = mean(arr_delay, na.rm = TRUE),
+    se_arr_delay = se(arr_delay, na.rm = TRUE),
+    mean_dep_delay = mean(dep_delay, na.rm = TRUE),
+    se_dep_delay = se(dep_delay, na.rm = TRUE)
+  )
+```
+
+
+6. Create `both_na()`, a function that takes two vectors of the same length and returns how many positions have an NA in both vectors.  Hint: create two vectors like `test_x <- c(1, 2, 3, NA, NA)` and `test_y <- c(NA, 1, 2, 3, NA)` and write code that works for `test_x` and `test_y`, then turn it into a function that can handle any `x` and `y`.  (In this case, the answer would be 1, since both vectors have NA in the 5th position.)  Test it for at least one more combination of `x` and `y`.
+```{r}
+both_na <- function(x, y) {
+  is_x <- is.na(x)
+  is_y <- is.na(y)
+  both <- (is_x & is_y)
+  sum(both)
+  #or just sum(is.na(x) & is.na(y))
+}
+
+testx <- c(1,2,3,NA,NA)
+testy <- c(NA,1,2,3,NA)
+both_na(testx, testy)
+testx2 <- c(NA, NA, 1, 3, 5, 6, 7, 7)
+testy2 <- c(NA, NA, NA, NA, NA, NA, NA, NA)
+both_na(testx2, testy2)
+```
+
+
+7. Run your code from (6) with the following two vectors: `test_x <- c(1, 2, 3, NA, NA, NA)` and `test_y <- c(NA, 1, 2, 3, NA)`. Did you get the output you wanted or expected?  Modify your function using `if`, `else`, and `stop` to print an error if x and y are not the same length.  Then test again with `test_x`, `test_y` and the sets of vectors you used in (6).
+```{r, error = TRUE}
+test_x <- c(1, 2, 3, NA, NA, NA)
+test_y <- c(NA, 1, 2, 3, NA)
+both_na(test_x, test_y)
+```
+We get an error because the two vectors are not of the same length. 
+
+```{r, error = TRUE}
+both_na <- function(x, y) {
+  if(length(x) == length(y)) {
+    is_x <- is.na(x)
+    is_y <- is.na(y)
+    both <- (is_x & is_y)
+    sum(both)
+  } else {
+    stop("'x' and 'y' are not the same length", call. = FALSE)
+  }
+}
+
+both_na(test_x, test_y)
+both_na(testx, testy)
+```
+
+
+8. Here is a way to get `not_cancelled` flights in the flights dataset:
+
+```{r}
+not_cancelled <- flights |> 
+  filter(!is.na(dep_delay), !is.na(arr_delay))
+```
+
+Is it necessary to check is.na for both departure and arrival? Using summarize, find the number of flights missing departure delay, arrival delay, and both. (Use your new function!)
+
+```{r}
+flights |>
+  summarize(dep_missing = sum(is.na(dep_delay)),
+            arr_missing = sum(is.na(arr_delay)),
+            both_missing = both_na(dep_delay, arr_delay))
+```
+
+It looks like every row missing its departure delay is also missing its arrival delay, but not vice versa, so we could just filter out rows missing arrival delay in this case.  
+
+9. Read the code for each of the following three functions, puzzle out what they do, and then brainstorm better names.
+
+```{r}
+#| eval: FALSE
+
+time.diff.min <- function(time1, time2) {
+  hour1 <- time1 %/% 100
+  min1 <- time1 %% 100
+  hour2 <- time2 %/% 100
+  min2 <- time2 %% 100
+  
+  (hour2 - hour1)*60 + (min2 - min1)
+}
+#difference between two times in minutes
+
+area.cm.to.inch <- function(lengthcm, widthcm) {
+  (lengthcm / 2.54) * (widthcm / 2.54)
+}
+#area in inches
+
+
+combine.nas <- function(x) {
+  fct_collapse(x, "non answer" = c("No answer", "Refused", 
+                                   "Don't know", "Not applicable"))
+}
+#takes variations of "don't know" and makes them all one factor level
+
+```
+
+
+10. Explain what the following function does and demonstrate by running `foo1(x)` with a few appropriately chosen vectors `x`.  (Hint: set x and run the "guts" of the function piece by piece.)
+
+```{r}
+num.desc <- function(x) {
+  diff <- x[-1] - x[1:(length(x) - 1)]
+  sum(diff < 0)
+}
+test1[-1]
+test1 <- c(5,4,3,2,1)
+num.desc(test1)
+```
+
+This function will return the number of values in a list that are less than the one before them. 
+
+11. The `foo1()` function doesn't perform well if a vector has missing values.  Amend `foo1()` so that it produces a helpful error message and stops if there are any missing values in the input vector.  Show that it works with appropriately chosen vectors `x`.  Be sure you add `error = TRUE` to your R chunk, or else knitting will fail!
+
+```{r, error = TRUE}
+foo1 <- function(x) {
+  if(is.na(sum(x))) {
+    stop("'x' has missing values", call. = FALSE)
+  } else{
+    diff <- x[-1] - x[1:(length(x) - 1)]
+    sum(diff < 0)
+  }
+}
+
+foo1(c(1,2,3,4))
+foo1(c(1, NA, 2, 3, 4))
+```
+
+
+
+12. Write a function called `greet` using `if`, `else if`, and `else` to print out "good morning" if it's before 12 PM, "good afternoon" if it's between 12 PM and 5 PM, and "good evening" if it's after 5 PM.  Your function should work if you input a time like: `greet(time = "2018-05-03 17:38:01 CDT")` or if you input the current time with `greet(time = Sys.time())`.  [Hint: check out the `hour` function in the `lubridate` package]
+```{r}
+greet <- function(time) {
+  hr <- hour(time)
+  if(hr < 12) {
+    "good morning"
+  } else if(12 <= hr & hr < 17) {
+    "good afternoon"
+  } else {
+    "good evening"
+  }
+}
+greet("2018-05-03 17:38:01 CDT")
+greet(time = Sys.time())
+```
+
+
+13. Modify the `summary6()` function from earlier to add an argument that gives the user an option to remove missing values, if any exist.  Show that your function works for (a) the `hwy` variable in `mpg_tbl <- as_tibble(mpg)`, and (b) the `age` variable in `gss_cat`.
+```{r}
+summary6 <- function(data, var, na.rm = FALSE) {
+  data |> summarize(
+    mean = mean({{ var }}, na.rm = na.rm),
+    median = median({{ var }}, na.rm = na.rm),
+    sd = sd({{ var }}, na.rm = na.rm),
+    IQR = IQR({{ var }}, na.rm = na.rm),
+    n = n(),
+    n_miss = sum(is.na({{ var }})),
+    .groups = "drop"  
+  )
+}
+mpg_tbl <- as_tibble(mpg)
+summary6(mpg_tbl, hwy, na.rm = TRUE)
+summary6(gss_cat, age, na.rm = TRUE)
+```
+
+
+
+14. Add an argument to (13) to produce summary statistics by group for a second variable (you should now have 4 possible inputs to your function).  Show that your function works for (a) the `hwy` variable in `mpg_tbl <- as_tibble(mpg)` grouped by `drv`, and (b) the `age` variable in `gss_cat` grouped by `partyid`.
+```{r}
+summary6 <- function(data, var, var2, na.rm = TRUE) {
+  data |> 
+    group_by(pick({{var2}})) |>
+    summarize(
+    mean = mean({{ var }}, na.rm = na.rm),
+    median = median({{ var }}, na.rm = na.rm),
+    sd = sd({{ var }}, na.rm = na.rm),
+    IQR = IQR({{ var }}, na.rm = na.rm),
+    n = n(),
+    n_miss = sum(is.na({{ var }})),
+    .groups = "drop"    # to leave the data in an ungrouped state
+  )
+}
+
+summary6(mpg_tbl, hwy, drv)
+party_age <- summary6(gss_cat, age, partyid)
+party_age
+```
+
+
+15. Create a function that has a vector as the input and returns the last value. (Note: Be sure to use a name that does not write over an existing function!)
+
+```{r}
+final_val <- function(x) {
+  x[[length(x)]]
+}
+
+final_val(c(1,2,3,4))
+final_val(c(1,2,3,7,10, 5, 6, 9))
+```
+
+
+16. Save your final table from (14) and write a function to draw a scatterplot of a measure of center (mean or median - user can choose) vs. a measure of spread (sd or IQR - user can choose), with points sized by sample size, to see if there is constant variance.  Each point should be labeled with partyid, and the plot title should reflect the variables chosen by the user.
+
+Hint: start with a ggplot with no user input, and then functionize:
+
+```{r}
+library(ggrepel)
+center.spread <- function(data, center, spread, count, group) {
+  label <- rlang::englue("{{center}} versus {{spread}} by party affiliation")
+  data |>
+    ggplot(aes(x = {{spread}}, y = {{center}}, label = {{group}}, color = {{group}})) +
+    geom_point(aes(size = {{count}}), alpha = 0.75) +
+    geom_text_repel(aes(label = {{group}})) + 
+    geom_smooth(method = lm) +
+    labs(title = label) +
+    guides(color = "none")
+}
+
+center.spread(party_age, mean, IQR, n, partyid)
+```
