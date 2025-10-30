@@ -168,7 +168,6 @@ sample(dolphin_data$treatment)
 ```
 
 ```{r}
-#| eval: FALSE
 
 ### Fill in Step 2 and remove "eval: FALSE" ###
 
@@ -178,10 +177,21 @@ dolphin_summary <- dolphin_data |>
   summarize(prop_yes = mean(improve == "Yes"))
 dolphin_summary
 observed_diff <- dolphin_summary[[2]][2] - dolphin_summary[[2]][1]
-
+observed_diff
 # Step 2
 
 ### Write a loop to create 1000 simulated differences from the null world
+simulated_diffs <- vector("double", 1000)
+for (i in 1:1000) {
+  null_dolphins <- tibble(treatment = sample(dolphin_data$treatment),
+                       improve = c(rep("Yes", 10), rep("No", 5), 
+                                   rep("Yes", 3), rep("No", 12)))
+  null_sum <- null_dolphins |>
+  group_by(treatment) |>
+  summarize(prop_yes = mean(improve == "Yes"))
+  simulated_diffs[i] <- null_sum[[2]][2] - null_sum[[2]][1]
+}
+simulated_diffs
 
 # Step 3
 null_world <- tibble(simulated_diffs = simulated_diffs)
@@ -488,6 +498,31 @@ You could then save your result using `write_csv` so you don't have to run the r
 ## On Your Own
 
 1. Compute the mean of every column of the `mtcars` data set using (a) a for loop, (b) a `map` function, (c) the across() function, and (d) pivot_longer().
+```{r}
+mtcars
+means <- vector("double", length(mtcars))
+for (i in 1:ncol(mtcars)) {
+  means[i] = mean(mtcars[[i]])
+}
+means
+```
+
+```{r}
+map_dbl(mtcars, mean)
+```
+
+```{r}
+summarize(mtcars, across(everything(), mean, .names = "mean_{.col}"))
+```
+
+```{r}
+mtcars |>
+  pivot_longer(cols = everything()) |>
+  group_by(name) |>
+  summarize(
+    means = mean(value)
+  )
+```
 
 
 2. Write a function that prints the mean of each *numeric* column in a data frame.  Try it on the `iris` data set. (Hint: `keep(is.numeric)`)
@@ -515,28 +550,45 @@ out
 
 
 4. Compute the number of unique values in each column of the `iris` data set using at least 2 of your favorite iteration methods.  Bonus points if you can use pivot_longer()!
+```{r}
+iris |>
+  map_dbl(n_distinct)
+
+num_unique <- vector("double", ncol(iris))
+for (i in 1:ncol(iris)) {
+  num_unique[i] = n_distinct(iris[[i]])
+}
+num_unique
+```
 
 
 5. Carefully explain each step in the pipeline below:
 
 ```{r}
+#make a function called show_missing
 show_missing <- function(df, group_vars, summary_vars = everything()) {
   df |> 
-    group_by(pick({{ group_vars }})) |> 
+    group_by(pick({{ group_vars }})) |> #group by given grouping variables
     summarize(
+      #count the number of NAs in each of the given summary variables and ungroup
       across({{ summary_vars }}, \(x) sum(is.na(x))),
       .groups = "drop"
     ) |>
-    select(where(\(x) any(x > 0)))
+    select(where(\(x) any(x > 0))) #select only columns that had at least one NA
 }
-nycflights13::flights |> show_missing(c(year, month, day))
+#output how many flights grouped by year, month, and day had missing values in each col
+nycflights13::flights |> show_missing(c(year, month, day)) 
 ```
 
 
 6. Write a function called `summary_stats()` that allows a user to input a tibble, numeric variables in that tibble, and summary statistics that they would like to see for each variable.  Using `across()`, the function's output should look like the example below.
 
 ```{r}
-#| eval: FALSE
+
+summary_stats <- function(df, vars, stat_fcts) {
+  df |>
+    summarize(across(.cols = {{vars}}, .fn = {{stat_fcts}}), n = n())
+}
 
 summary_stats(mtcars, 
               vars = c(mpg, hp, wt), 
@@ -615,5 +667,17 @@ p_value < .05   # if TRUE, then we reject the null hypothesis and conclude
 # find the power = proportion of time null is rejected when
 #   true difference is not 0 (i.e. number of simulated data sets that
 #   result in p-values below .05)
+p_sig <- vector("double", numsims)
+for (i in 1:numsims) {
+  samp1 <- rnorm(n1, mean1, sd1)
+  samp2 <- rnorm(n2, mean2, sd2)
 
+  sim_data <- tibble(response = c(samp1, samp2), 
+       group = c(rep("Group 1", n1), rep("Group 2", n2)))
+  
+  p_value <- t.test(x = samp1, y = samp2)$p.value
+  p_sig[i] <- p_value < .05
+}
+p_sig
+mean(p_sig)
 ```

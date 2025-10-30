@@ -431,10 +431,9 @@ library(ggrepel)
 center.spread <- function(data, center, spread, count, group) {
   label <- rlang::englue("{{center}} versus {{spread}} by party affiliation")
   data |>
-    ggplot(aes(x = {{spread}}, y = {{center}}, label = {{group}}, color = {{group}})) +
+    ggplot(aes(y = {{spread}}, x = {{center}}, label = {{group}}, color = {{group}})) +
     geom_point(aes(size = {{count}}), alpha = 0.75) +
     geom_text_repel(aes(label = {{group}})) + 
-    geom_smooth(method = lm) +
     labs(title = label) +
     guides(color = "none")
 }

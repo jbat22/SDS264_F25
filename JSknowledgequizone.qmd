@@ -1,0 +1,140 @@
+---
+title: |
+  `\vspace{-2cm}`{=latex}
+  SDS264: Knowledge Quiz 1
+subtitle: "Strings and Regular Expressions"
+format:
+  pdf: default
+editor_options: 
+  chunk_output_type: console
+---
+
+\vspace{-2cm}
+
+Guidelines: 
+
+- You may use one hand-written notesheet.
+
+Pledge: 
+
+I pledge my honor that on this quiz I have neither given nor received assistance not explicitly approved by the professor and that I an aware of no dishonest work.
+
+- type your name here to acknowledge the pledge: _________________________
+
+- OR
+
+- place an X here if you intentionally are not signing the pledge: _______
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(rvest)
+library(tidytext)
+
+# this will have to reflect the path to your data
+park_data <- read_csv("~/SDS264_F25/park_data_KQ1.csv")
+```
+
+## National Park Data
+
+`park_data` is a 54x3 tibble containing information scraped from national park webpages for a past SDS264 final project.  A few notes about the 3 columns:
+
+- `park_code` is a 4-letter code used as a key when merging files
+
+- `address` is comprised of 4 pieces (described from *right* to *left*): the street address (followed by at least 2 space), the city, a 2-letter state abbreviation (followed by a comma), and the zip code (which could be 5 digits or 5 digits, a dash, and 4 more digits)
+
+- `activities` is a string of activities offered at each park, where activities are separated by commas
+
+Here's a small preview of `park_data`:
+
+```{r}
+print(park_data[c(2,3,4,29,36),])
+```
+
+
+
+## Quiz Questions
+
+Please answer the following questions using your knowledge of strings and regular expressions.  Use `stringr` functions wherever possible.
+
+
+1. Find the subset of all `address` entries that contain a direction (north, south, east, or west) that may or may not be capitalized.
+
+Hint: `str_subset(park_data$address, "FILL THIS IN!")`
+
+\vspace{2cm}
+
+```{r}
+str_subset(park_data$address, "[nN]orth|[sS]outh|[eE]ast|[wW]est")
+```
+
+
+2. Create a new tibble containing only national parks in Alaska (AK) and Hawaii (HI).
+
+\vspace{2cm}
+
+```{r}
+park_data |>
+  filter(str_detect(address, "AK|HI"))
+```
+
+
+3. The following code creates a new tibble with the `address` column and then the 4 new columns below, which break apart `address` into its 4 pieces: `street_address`, `city`, `state`, and `zip_code`.
+
+**For 3 of the 4 pieces,** explain what each line is doing, and how it produces the desired outcome.  (Hint: str_trim() simply trims off any spaces at the beginning or end of a string)
+
+```{r}
+four_pieces <- park_data |>
+  mutate(
+    street_address = str_trim(str_extract(address, "^.*( ){2,}")),
+    city = str_trim(str_extract(address, "( ){2,}.*[A-Z]{2}")),
+    city = str_replace(city, " [A-Z]{2}", ""),
+    state = str_extract(address, "[A-Z]{2},"),
+    state = str_replace(state, ",", ""),
+    zip_code = str_extract(address, "[\\d-]+$")
+  ) |>
+  select(address, street_address, city, state, zip_code)
+```
+
+\pagebreak
+
+```{r}
+print(four_pieces, n = 5)
+```
+
+
+Use your new tibble from (3) to answer Questions (4) and (5).  
+
+4. Print the subset of `street_address` entries where the numerical part is 1000 or greater.
+
+\vspace{2cm}
+
+
+5. Arrange `city` names from longest to shortest.
+
+\vspace{2cm}
+
+
+Use the `activities` column from `park_data` to answer Questions (6) - (8).  An example of the first entry in that column is give below:
+
+```{r}
+cat(str_wrap(park_data$activities[1], width = 80))
+```
+
+6. Create a new column in `park_data` which records the total number of activities in each park.  Hint:  since activities are separated by commas, the total number of activities can be thought of as "# commas + 1".
+
+\vspace{2cm}
+
+
+7. Find the subset of entries from the `activities` column that have a capital letter / lower case letter combination that repeats later in the phrase (e.g. "Gh" appears twice).
+
+\vspace{2cm}
+
+
+8. Find the subset of entries from the `activities` column that have the same consonant appear twice in a row.
+
+\vspace{2cm}
