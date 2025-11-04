@@ -1,0 +1,307 @@
+---
+title: 'Homework 3'
+format: pdf
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+#| include: FALSE
+
+library(tidyverse)
+library(stringr)
+library(rvest)
+library(polite)
+library(sf)
+library(maps)
+library(viridis)
+library(leaflet)
+library(htmltools)
+library(janitor)
+```
+
+```{r}
+session <- bow("https://www.usclimatedata.com/climate/minneapolis/minnesota/united-states/usmn0503", force = TRUE)
+
+result <- scrape(session) |>
+  html_nodes(css = "table") |> 
+  html_table(header = TRUE, fill = TRUE)
+mpls_data1 <- result[[1]]
+mpls_data2 <- result[[2]]
+```
+
+**[Pause to Ponder:]** What is each line of code doing below?
+
+```{r}
+#combines into one wide table
+bind_cols(mpls_data1, mpls_data2) |> 
+  #makes into a tibble
+  as_tibble() |>
+  #deletes the ...8 column
+  select(-`...8`) |> 
+  #shortens names in first column to just the first three words
+  mutate(`...1` = str_extract(`...1`, "[^ ]+ [^ ]+ [^ ]+")) |>  
+  pivot_longer(cols = c(`JanJa`:`DecDe`), 
+   #makes a longer table where each month has its own row for each ...1 category
+               names_to = "month", values_to = "weather") |> 
+  #makes a wider table where each month has its own row
+  pivot_wider(names_from = `...1`, values_from = weather) |> 
+  #fixes month names to just the first three letters
+  mutate(month = str_sub(month, 1, 3))  |> 
+  #changes var names to be nicer
+  rename(avg_high = "Average high in",
+         avg_low = "Average low in",
+         precip_days = "Days with precipitation",
+         avg_precip = "Av. precipitation in",
+         avg_snow = "Av. snowfall in")
+
+# Probably want to rename the rest of the variables too!
+```
+
+
+
+### On Your Own
+
+1. In 13_maps.qmd we will see how to create an interactive U.S. map showing population densities by state.  Right now, let's see if we can use our new web scraping skills to scrape the correct population density data and create a tidy data frame!
+
+A quick wikipedia search yields [this webpage](https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States_by_population_density) with population densities in a nice table format.  Use our 4 steps to `rvest`ing data to acquire the data, and then create a tidy tibble with one row per state.
+
+```{r}
+session <- bow("https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States_by_population_density", force = TRUE)
+
+result <- scrape(session) |>
+  html_nodes(css = "table") |> 
+  html_table(header = TRUE)
+
+states <- result[[1]] |>
+  select(-3,-6) |>
+  filter(row_number()!=1) |>
+  mutate(state_name = str_to_lower(as.character(Location)),
+         state_name = str_replace(state_name, "\\[4\\]", ""),
+         Density = parse_number(Density),
+         Population = parse_number(Population),
+         `Land area` = parse_number(`Land area`)) |>
+  select(-Location) 
+states
+```
+
+
+3. We would like to create a tibble with 4 years of data (2001-2004) from the Minnesota Wild hockey team.  Specifically, we are interested in the "Scoring Regular Season" table from [this webpage](https://www.hockey-reference.com/teams/MIN/2001.html) and the similar webpages from 2002, 2003, and 2004.  Your final tibble should have 6 columns:  player, year, age, pos (position), gp (games played), and pts (points).
+
+You should (a) write a function called `hockey_stats` with inputs for team and year to scrape data from the "scoring Regular Season" table, and (b) use iteration techniques to scrape and combine 4 years worth of data.  Here are some functions you might consider:
+
+- `row_to_names(row_number = 1)` from the `janitor` package
+- `clean_names()` also from the `janitor` package
+- `bow()` and `scrape()` from the `polite` package
+- `str_c()` from the `stringr` package (for creating urls with user inputs)
+- `map2()` and `list_rbind()` for iterating and combining years
+
+Try following these steps:
+
+1) Be sure you can find and clean the correct table from the 2001 season.
+
+2) Organize your `rvest` code from (1) into functions from the `polite` package.
+
+```{r}
+session <- bow("https://www.hockey-reference.com/teams/MIN/2001.html", force = TRUE)
+
+result <- scrape(session) |>
+  html_nodes(css = "table") |> 
+  html_table(header = TRUE)
+
+hockey_table <- result[[4]] |>
+  row_to_names(row_number = 1) |>
+  clean_names() |>
+  select(player, age, pos, gp, pts) |>
+  mutate(age = parse_number(age),
+         gp = parse_number(gp),
+         pts = parse_number(pts),
+         year = 2001)
+```
+
+
+3) Place the code from (2) into a function where the user can input a team and year.  You would then adjust the url accordingly and produce a clean table for the user.
+
+```{r}
+hockey_stats <- function(team, year){
+  #make url based on input team and year
+  url_name <- str_c("https://www.hockey-reference.com/teams/", team, "/", year, ".html")
+  
+  #scrape data
+  session <- bow(url_name, force = TRUE)
+  
+  result <- scrape(session) |>
+    html_nodes(css = "table") |> 
+    html_table(header = TRUE)
+  
+  #extract and clean table
+  hockey_table <- result[[4]] |>
+    row_to_names(row_number = 1) |>
+    clean_names() |>
+    select(player, age, pos, gp, pts) |>
+    mutate(age = parse_number(age),
+          gp = parse_number(gp),
+          pts = parse_number(pts),
+          year = year) |>
+    filter(player != "Team Totals")
+  hockey_table
+}
+
+hockey_stats(team = "MIN", 2001)
+```
+
+
+4) Use `map2` and `list_rbind` to build one data set containing Minnesota Wild data from 2001-2004.
+
+```{r}
+wild_01_04 <- map2("MIN", 2001:2004, hockey_stats) |>
+  list_rbind()
+wild_01_04
+```
+
+
+## On Your Own: 
+
+1. Finishing the NIH example
+
+a) Repeat the process above to extract the description (which include the publication date and the abstract):
+
+```{r}
+session <- bow("https://www.nih.gov/news-events/news-releases", force = TRUE)
+
+nih_description <- scrape(session) |>
+  html_nodes(".thumbnail-teaser__description") |>
+  html_text()
+nih_description
+```
+
+
+b) Combine these extracted variables into a single tibble, with columns called `title`, `description`, and `pubdate`.  Make sure the variables are formatted correctly - e.g. `pubdate` has `date` type, `description` does not contain the `pubdate`, etc.
+
+```{r}
+nih_title <- scrape(session) |>
+  html_nodes(".thumbnail-teaser__heading") |>
+  html_text()
+# use tibble() to put multiple columns together into a tibble
+nih_top10 <- tibble(title = nih_title, 
+                    description = nih_description)
+nih_top10
+
+# now clean the data
+nih_top10 <- nih_top10 |>
+  mutate(
+    pubdate = str_extract(description, "^.*(   )"),
+    pubdate = str_replace(pubdate, " —   ", ""),
+    pubdate = mdy(pubdate),
+    description = str_replace(description, "^.*(   )", "")
+  )
+nih_top10
+```
+
+
+c) Continue this process to build a tibble with the most recent 50 NIH news releases, which will require that you iterate over 5 webpages!  You should write at least one function, and you will need iteration--use both a `for` loop and appropriate `map_()` functions from `purrr`. Some additional hints:
+
+- Mouse over the page buttons at the very bottom of the news home page to see what the URLs look like.
+- Include `Sys.sleep(2)` in your function to respect the `Crawl-delay: 2` in the NIH `robots.txt` file.
+- Recall that `bind_rows()` from `dplyr` takes a list of data frames and stacks them on top of each other.
+- Note that the initial page can be considered "page=0" in the URL
+
+Create a function to scrape a single NIH press release page by filling missing pieces labeled `** FILL IN **`:
+
+```{r}
+# Helper function to reduce html_nodes() |> html_text() code duplication
+get_text_from_page <- function(page, css_selector) {
+  page |> 
+    html_nodes(css_selector) |> 
+    html_text()
+}
+
+# Main function to scrape and tidy desired attributes
+scrape_page <- function(url) {
+  Sys.sleep(2)
+  session <- bow(url, force = TRUE)
+  page <- scrape(session)
+  nih_title <- get_text_from_page(page, ".thumbnail-teaser__heading")
+  nih_description <- get_text_from_page(page, ".thumbnail-teaser__description")
+  tibble(title = nih_title, description = nih_description) |>
+    mutate(
+      pubdate = str_extract(description, "^.*(   )"),
+      pubdate = str_replace(pubdate, " —   ", ""),
+      pubdate = mdy(pubdate),
+      description = str_replace(description, "^.*(   )", "")
+    )
+
+}
+
+# Test your new function
+scrape_page("https://www.nih.gov/news-events/news-releases")
+```
+
+
+d) Use a for loop over the first 5 pages by filling in code where asked:
+
+```{r}
+pages <- vector("list", length = 5)
+for (i in 0:4) {
+  url <- str_c("https://www.nih.gov/news-events/news-releases?page=", i)
+  pages[[i + 1]] <- scrape_page(url)
+}
+
+df_articles <- bind_rows(pages)
+df_articles
+```
+
+
+e) Instead, form a final data set by using map functions in the purrr package:
+
+```{r}
+# Create a character vector of URLs for the first 5 pages
+base_url <- "https://www.nih.gov/news-events/news-releases?page="
+urls_all_pages <- str_c(base_url, 0:4)
+
+pages2 <- purrr::map(urls_all_pages, scrape_page)
+df_articles2 <- bind_rows(pages2)
+df_articles2
+```
+
+
+## On Your Own - Best Places
+
+2. Go to https://www.bestplaces.net and search for Minneapolis, Minnesota.  This is a site some people use when comparing cities they might consider working in and/or moving to.  Using SelectorGadget, extract the following pieces of information from the Minneapolis page:
+
+- property crime (on a scale from 0 to 100)
+- minimum income required for a single person to live comfortably
+- average monthly rent for a 2-bedroom apartment
+- the "about" paragraph (the very first paragraph above "Location Details")
+```{r}
+
+session <- bow("https://www.bestplaces.net/city/minnesota/minneapolis", force = TRUE)
+
+crime_mn_data <- scrape(session) |>
+  html_nodes(".col-4") |>
+  html_text()
+crime_mn <- crime_mn_data[[3]] |>
+  parse_number()
+crime_mn
+
+comfy_income_mn_data <- scrape(session) |>
+  html_nodes(".col-8") |>
+  html_text()
+comfy_income_mn_int <- comfy_income_mn_data[[1]] |>
+  str_extract_all("\\$\\d*,\\d*")
+comfy_income_mn <- comfy_income_mn_int[[1]][[2]]
+comfy_income_mn
+
+avg_rent_mn_data <- scrape(session) |>
+  html_nodes(".mb-2") |>
+  html_text()
+avg_rent_mn <- avg_rent_mn_data[[8]] |>
+  parse_number()
+avg_rent_mn
+
+about_mn_data <- scrape(session) |>
+  html_nodes(".ms-3") |>
+  html_text()
+about_mn <- about_mn_data[[1]]
+about_mn
+```
