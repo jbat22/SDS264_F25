@@ -143,7 +143,7 @@ details[[2]]                    # since a list, another way to access
 
 # Create a vector of 5 movie names you want to study
 #  - must figure out pattern in URL for obtaining different movies
-movies <- c(**FILL IN**)
+movies <- c("Shrek the Third", "Ratatouille", "Harry Potter and the Order of the Phoenix", "Alvin and the Chipmunks", "Ocean's Thirteen")
 
 # Set up empty tibble
 omdb <- tibble(Title = character(), Rated = character(), Genre = character(),
@@ -154,17 +154,17 @@ omdb <- tibble(Title = character(), Rated = character(), Genre = character(),
 #   each time filling the next row in the tibble
 #  - can do max of 1000 GETs per day
 for(i in 1:5) {
-  url <- str_c(**FILL IN**)
+  url <- str_c("http://www.omdbapi.com/?t=",str_replace_all(movies[[i]]," ","+"),"&y=2007&apikey=",omdb_api_key)
   Sys.sleep(0.5)
   onemovie <- GET(url)
-  details <- content(**FILL IN**)
+  details <- content(onemovie, "parse")
   omdb[i,1] <- details$Title
-  omdb[i,2] <- **FILL IN**  # rating
-  omdb[i,3] <- **FILL IN**  # genres (single string - could be more than one)
-  omdb[i,4] <- **FILL IN**  # actors (single string - could be more than one)
-  omdb[i,5] <- **FILL IN**  # metascore (be sure it is numeric)
-  omdb[i,6] <- **FILL IN**  # imdb rating (be sure it is numeric)
-  omdb[i,7] <- **FILL IN**  # box office (be sure it is numeric)
+  omdb[i,2] <- details$Rated  # rating
+  omdb[i,3] <- details$Genre  # genres (single string - could be more than one)
+  omdb[i,4] <- details$Actors  # actors (single string - could be more than one)
+  omdb[i,5] <- parse_number(details$Metascore)  # metascore (be sure it is numeric)
+  omdb[i,6] <- parse_number(details$imdbRating)  # imdb rating (be sure it is numeric)
+  omdb[i,7] <- parse_number(details$BoxOffice)  # box office (be sure it is numeric)
 }
 
 omdb
@@ -186,6 +186,8 @@ Initial instructions:
 ```{r}
 # Load in your API key
 nps_api_key <- readLines("~/264_fall_2025/DS2_preview_work/nps_api_key.txt")
+
+nps_api_key <- readLines("~/SDS264_F25/national_park_api_key.txt")
 
 # Alternatively, load your NPS API key using:
 # nps_api_key <- Sys.getenv("NPS_KEY")
@@ -313,7 +315,7 @@ All right, let's try this!  Let's grab total population and median household inc
 
 # Load in your API key
 census_api_key <- readLines("~/264_fall_2025/DS2_preview_work/census_api_key.txt")
-
+census_api_key <- readLines("~/SDS264_F25/census_bureau_api_key.txt")
 # Alternatively, load your NPS API key using:
 # census_api_key <- Sys.getenv("CENSUS_API_KEY")
 
@@ -396,6 +398,7 @@ hennepin_tidycensus <- hennepin_tidycensus |>
          median_income_moe = B19013_001M)
 
 # Look for relationships between variables with 1 row per tract
+
 as_tibble(hennepin_tidycensus) |>
   ggplot(aes(x = population, y = median_income)) + 
     geom_point() + 
@@ -413,6 +416,36 @@ ggplot(data = hennepin_tidycensus) +
 ### On Your Own - Census
 
 2. Adapt the code in `hennepin_tidycensus` to write a function called `MN_tract_data` to give the user choices about year, county, and variables to pull off.  Show that `MN_tract_data(year = 2021, county = "Hennepin", variables = c("B01003_001", "B19013_001"))` works as expected.  Make sure it also works for other years, counties, and variables (e.g. B25077_001 is median home price and B02001_002 is number of white residents).
+```{r}
+MN_tract_data <- function(year, county, variables){
+  tidycensus::get_acs(
+    year = year,
+    state = "MN",
+    geography = "tract",
+    variables = variables,
+    output = "wide",
+    geometry = TRUE,
+    county = county,   # specify county in call
+    show_call = TRUE       # see resulting query
+)
+}
+MN_tract_data(year = 2021, county = "Rice", variables = c("B01003_001", "B02001_002"))
+```
 
 
 3. Use your function from (2) along with `map` and `list_rbind` to build a data set for Rice county for the years 2019-2021.  Use your scraped data to plot trends in income over time and population over time.
+
+```{r}
+rice_over_time <- 2019:2021 |>
+  map(MN_tract_data,
+      county = "Rice",
+      variables = c("B01003_001", "B19013_001")) |>
+  list_rbind()
+
+rice_over_time <- rice_over_time |>
+  mutate(population = "B01003_001E",
+         median_income = "B19013_001E") |>
+  select(-B01003_001E, -B19013_001E, -B01003_001M, -B01003_001M)
+
+```
+
