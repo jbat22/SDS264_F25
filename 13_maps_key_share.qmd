@@ -1,0 +1,204 @@
+---
+title: "Creating informative maps"
+format:
+  html: default
+editor_options: 
+  chunk_output_type: console
+---
+
+
+### On Your Own
+
+1. Let's return to our example from above where we recreated an [interactive choropleth map](https://rstudio.github.io/leaflet/articles/choropleths.html) of population densities by US state.  Recall how that plot was very suspicious?  The population density data that came with the state geometries from [our source](https://rstudio.github.io/leaflet/json/us-states.geojson) seemed incorrect. 
+
+In `10_table_scraping.qmd` (On Your Own #1) we went out and found the real statewise population densities (from [here](https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States_by_population_density)) and created a tidy data frame.  Now let's merge that with our state geometry shapefiles and regenerate our interactive choropleth map.
+
+```{r}
+# Code from OYO #1 in 10_table_scraping.qmd
+
+library(rvest)
+library(sf)
+library(polite)
+library(viridis)
+library(leaflet)
+library(htmltools)
+library(glue)
+library(tidyverse)
+
+session <- bow("https://en.wikipedia.org/wiki/List_of_states_and_territories_of_the_United_States_by_population_density", force = TRUE)
+
+result <- scrape(session) |>
+  html_nodes(css = "table") |> 
+  html_table(header = TRUE, fill = TRUE)
+density_table <- result[[1]]
+density_table
+
+density_data <- density_table |>
+  select(1, 2, 4, 5) |>
+  filter(!row_number() == 1) |>
+  rename(Land_area = `Land area`) |>
+  mutate(state_name = str_to_lower(as.character(Location)),
+         Density = parse_number(Density),
+         Population = parse_number(Population),
+         Land_area = parse_number(Land_area)) |>
+  select(-Location)
+
+density_data
+```
+
+As before, we get core geometry data to draw US states and then we'll make sure we can merge our new density data into the core files.
+
+```{r}
+#| message: false
+#| warning: false
+
+# Get info to draw US states for geom_polygon (connect the lat-long points)
+states_polygon <- as_tibble(map_data("state")) |>
+  select(region, group, order, lat, long)
+
+# See what the state (region) levels look like in states_polygon
+unique(states_polygon$region)
+
+
+# Get info to draw US states for geom_sf and leaflet (simple features
+#   object with multipolygon geometry column)
+states_sf <- 
+  read_sf("https://rstudio.github.io/leaflet/json/us-states.geojson") |>
+  select(name, geometry)
+
+# See what the state (name) levels look like in states_sf
+unique(states_sf$name)
+
+
+# See what the state (state_name) levels look like in density_data
+unique(density_data$state_name)   
+# all lower case plus some extraneous rows
+
+# Make sure all keys have the same format before joining: all lower case
+states_sf <- states_sf |>
+  mutate(name = str_to_lower(name))
+```
+
+
+```{r}
+# Now we can merge data sets together for the static and the interactive plots
+
+# Merge with states_polygon (static)
+density_polygon <- states_polygon |>
+  left_join(density_data, by = c("region" = "state_name"))
+density_polygon
+
+# Looks like merge worked for 48 contiguous states plus DC
+density_polygon |>
+  group_by(region) |>
+  summarise(mean = mean(Density)) |>
+  print(n = Inf)
+
+# Remove DC since such an outlier
+density_polygon <- density_polygon |>
+  filter(region != "district of columbia")
+
+
+# Merge with states_sf (static or interactive)
+density_sf <- states_sf |>
+  left_join(density_data, by = c("name" = "state_name")) |>
+  filter(!(name %in% c("alaska", "hawaii")))
+
+# Looks like merge worked for 48 contiguous states plus DC and PR
+class(density_sf)
+print(density_sf, n = Inf)
+
+# Remove DC and PR
+density_sf <- density_sf |>
+  filter(name != "district of columbia" & name != "puerto rico")
+```
+
+
+Numeric variable (static plot):
+
+```{r}
+density_polygon |>
+  ggplot(mapping = aes(x = long, y = lat, group = group)) + 
+    geom_polygon(aes(fill = Density), color = "black") + 
+    labs(fill = "Population density in 2023 \n (people per sq mile)") +
+    coord_map() + 
+    theme_void() +  
+    scale_fill_viridis() 
+```
+
+Remember that the original plot classified densities into our own pre-determined bins before plotting - this might look better!
+
+```{r}
+density_polygon <- density_polygon |>
+  mutate(Density_intervals = cut(Density, n = 8,
+          breaks = c(0, 10, 20, 50, 100, 200, 500, 1000, Inf)))
+
+density_polygon |>
+  ggplot(mapping = aes(x = long, y = lat, group = group)) + 
+    geom_polygon(aes(fill = Density_intervals), color = "white",
+                 linetype = 2) + 
+    labs(fill = "Population Density (per sq mile)") +
+    coord_map() + 
+    theme_void() +  
+    scale_fill_brewer(palette = "YlOrRd") 
+```
+
+We could even create a static plot using `geom_sf()` using `density_sf`:
+
+```{r}
+density_sf <- density_sf |>
+  mutate(Density_intervals = cut(Density, n = 8,
+          breaks = c(0, 10, 20, 50, 100, 200, 500, 1000, Inf))) 
+
+ggplot(data = density_sf) + 
+  geom_sf(aes(fill = Density_intervals), colour = "white", linetype = 2) + 
+  theme_void() +  
+  scale_fill_brewer(palette = "YlOrRd") 
+```
+
+But... why not make an interactive plot instead (with our own bins)?
+
+```{r}
+#| warning: false
+
+# Create our own category bins for population densities
+#   and assign the yellow-orange-red color palette
+bins <- c(0, 10, 20, 50, 100, 200, 500, 1000, Inf)
+pal <- colorBin("YlOrRd", domain = density_sf$Density, bins = bins)
+
+# Create labels that pop up when we hover over a state.  The labels must
+#   be part of a list where each entry is tagged as HTML code.
+density_sf <- density_sf |>
+  mutate(labels = str_c(name, ": ", Density, " people / sq mile"))
+labels <- lapply(density_sf$labels, HTML)
+
+# If want more HTML formatting, use these lines instead of those above:
+# states <- states |>
+#   mutate(labels = glue("<strong>{name}</strong><br/>{density} people / 
+#   mi<sup>2</sup>"))
+# labels <- lapply(states$labels, HTML)
+
+leaflet(density_sf) |>
+  setView(-96, 37.8, 4) |>
+  addTiles() |>
+  addPolygons(
+    fillColor = ~pal(Density),
+    weight = 2,
+    opacity = 1,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.7,
+    highlightOptions = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")) |>
+  addLegend(pal = pal, values = ~Density, opacity = 0.7, title = NULL,
+    position = "bottomright")
+```
