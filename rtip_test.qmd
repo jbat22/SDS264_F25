@@ -1,0 +1,182 @@
+---
+title: "R Tip of the Day"
+subtitle: "The ggpattern package"
+author: "Jessica Schmidt"
+date: "November 20, 2025"
+format:
+  revealjs: 
+    slide-number: true
+    chalkboard: 
+      buttons: true
+    preview-links: auto
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(tidyverse)
+library(ggpattern)
+library(gganimate)
+penguins <- palmerpenguins::penguins
+```
+
+
+## What is ggpattern?
+
+ggpattern is an extension of ggplot 2 that lets you add patterns to your graphs.
+
+::: incremental
+-   Patterns are a new optional aesthetic in ggplot
+-   New functions: geom_bar_pattern(), geom_col_pattern(), etc
+-   Both built-in and custom patterns
+:::
+
+## Penguin Patterns {auto-animate=true}
+
+```{.r code-line-numbers="3-4"}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'crosshatch',
+                   fill = "white",
+                   color = "black")
+```
+
+## Penguin Patterns {auto-animate=true}
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'crosshatch',
+                   fill = "white",
+                   color = "black")
+```
+
+## Different Pattern Options - Stripe
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'stripe',
+                   fill = "white",
+                   color = "black")
+```
+
+## Different Pattern Options - Circle
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'circle',
+                   fill = "white",
+                   color = "black")
+```
+
+
+## Different Pattern Options - Gradient
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'gradient',
+                   pattern_alpha = 0.8,
+                   fill = "white",
+                   color = "black")
+```
+
+## Different Pattern Options - Plasma
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'plasma',
+                   fill = "white",
+                   color = "black")
+```
+
+## Different Pattern Options - Images
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'placeholder',
+                   pattern_type = 'bear', show.legend = FALSE)
+```
+
+## Different Pattern Options - Custom Patterns
+
+```{.r code-line-numbers="3-7"}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'stripe',
+                   pattern_alpha = 0.5,
+                   pattern_angle = 90,
+                   pattern_color = "blue",
+                   fill = "white",
+                   color = "black")
+```
+
+## Different Pattern Options - Custom Patterns
+
+```{r}
+penguins |>
+  ggplot(aes(x = species)) +
+  geom_bar_pattern(aes(pattern_fill = species), 
+                   pattern = 'stripe',
+                   pattern_alpha = 0.5,
+                   pattern_angle = 90,
+                   pattern_color = "blue",
+                   fill = "white",
+                   color = "black")
+```
+
+## Different Plots - geom_boxplot_pattern()
+
+```{r}
+penguins |>
+  ggplot(aes(x = body_mass_g, y = species)) +
+  geom_boxplot_pattern(aes(pattern = species))
+```
+
+## Different Plots - geom_violin_pattern()
+
+```{r}
+penguins |>
+  ggplot(aes(x = body_mass_g, y = species)) +
+  geom_violin_pattern(aes(pattern = species, pattern_fill = species, fill = species))
+```
+
+## Different Plots - geom_density_pattern()
+
+```{r}
+penguins |>
+  ggplot(aes(x = body_mass_g)) +
+  geom_density_pattern(fill = "pink", pattern_fill = "lightgreen")
+```
+
+
+## Different Plots - geom_histogram_pattern()
+
+```{r}
+penguins |>
+  ggplot(aes(x = body_mass_g)) +
+  geom_histogram_pattern(pattern = 'crosshatch')
+```
+
+
+## Why do we care about patterns? {auto-animate="true"}
+
+Patterns can make graphs more interesting, informative, and accessible. 
+
+::: incremental
+-   Patterns may make a plot more clear or exciting to look at
+-   Custom patterns can emphasize parts of the data
+-   Patterns are another way to make charts colorblind friendly
+:::
