@@ -1,12 +1,13 @@
 ---
 title: "Shiny: NMES1988"
 runtime: shiny
-output: html_document
+output: flexdashboard::flex_dashboard
 ---
 
 ```{r setup, include=FALSE, message=FALSE}
 library(AER)
 library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
 data("NMES1988")
 
 NMES1988 <- NMES1988 |>
